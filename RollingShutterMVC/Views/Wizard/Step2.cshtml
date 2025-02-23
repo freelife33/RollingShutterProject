@@ -1,0 +1,19 @@
+﻿@using RollingShutterMVC.Models.ViewsModels
+@model DeviceCreateViewModel
+@{
+    ViewData["Title"] = "Adım 2: Aygıt Ekle";
+}
+
+<h2>Cihaz Ekle</h2>
+
+<form asp-action="Step2" method="post">   
+    <div class="form-group">
+        <label asp-for="DeviceName">Cihaz Türü</label>
+        <select asp-for="DeviceName" class="form-control">
+            <option value="Panjur">Panjur</option>
+            <option value="Işık">Işık</option>
+            <option value="Klima">Klima</option>
+        </select>
+    </div>
+    <button type="submit" class="btn btn-primary">Devam Et</button>
+</form>

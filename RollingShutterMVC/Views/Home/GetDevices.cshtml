@@ -1,0 +1,35 @@
+﻿@using RollingShutterMVC.Models
+
+@{
+    ViewData["Title"] = "GetDevices";
+}
+
+@model List<Device>
+
+<h1>GetDevices</h1>
+
+
+
+
+@if(Model==null || !Model.Any())
+{
+    <p>Henüz bir cihaz eklenmemiş.</p>
+}else{
+    <table>
+        <tr>
+            <th>ID</th>
+            <th>Cihaz Adı</th>
+            <th>Türü</th>
+            <th>Durumu</th>
+        </tr>
+       @foreach (var device in Model)
+        {
+            <tr>
+                <td>@device.id</td>
+                <td>@device.name</td>
+                <td>@device.type</td>
+                <td>@device.status</td>
+            </tr>
+        }
+    </table>
+}

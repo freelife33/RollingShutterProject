@@ -1,0 +1,29 @@
+﻿@model IEnumerable<RollingShutterProject.Models.SensorData>
+
+<h2>Çevre Sensörü Verileri</h2>
+
+<table class="table table-bordered">
+    <thead>
+        <tr>
+            <th>Sensör Türü</th>
+            <th>Değer</th>
+            <th>Zaman</th>
+        </tr>
+    </thead>
+    <tbody id="sensorDataTable">
+        @foreach (var item in Model)
+        {
+            <tr>
+                <td>@item.SensorType</td>
+                <td>@item.Value</td>
+                <td>@item.TimeStamp.ToString("dd.MM.yyyy HH:mm")</td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+<script>
+    setInterval(function () {
+        $("#sensorDataTable").load("/Sensor/PartialSensorData");
+    }, 5000);
+</script>

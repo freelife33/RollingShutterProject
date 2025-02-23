@@ -1,0 +1,46 @@
+﻿@using RollingShutterProject.Models
+@model UserSettings
+
+<h2>Kullanıcı Ayarları</h2>
+
+@if (!ViewData.ModelState.IsValid)
+{
+    <div class="alert alert-danger">
+        <ul>
+            @foreach (var error in ViewData.ModelState.Values.SelectMany(v => v.Errors))
+            {
+                <li>@error.ErrorMessage</li>
+            }
+        </ul>
+    </div>
+}
+
+<form asp-action="Save" method="post">
+    <div class="form-group">
+        <label for="LoggingIntervalHours">Kayıt Aralığı (Saat):</label>
+        <input asp-for="LoggingIntervalHours" class="form-control" />
+        <span asp-validation-for="LoggingIntervalHours" class="text-danger"></span>
+    </div>
+
+    <div class="form-group form-check">
+        <input asp-for="DetectAnomalies" class="form-check-input" />
+        <label asp-for="DetectAnomalies" class="form-check-label">Anomalileri Tespit Et</label>
+    </div>
+
+    <div class="form-group form-check">
+        <input asp-for="NotifyOnHighTemperature" class="form-check-input" />
+        <label asp-for="NotifyOnHighTemperature" class="form-check-label">Yüksek Sıcaklıkta Bildir</label>
+    </div>
+
+    <div class="form-group form-check">
+        <input asp-for="NotifyOnPoorAirQuality" class="form-check-input" />
+        <label asp-for="NotifyOnPoorAirQuality" class="form-check-label">Kötü Hava Kalitesinde Bildir</label>
+    </div>
+
+    <div class="form-group form-check">
+        <input asp-for="AutoOpenShutter" class="form-check-input" />
+        <label asp-for="AutoOpenShutter" class="form-check-label">Panjuru Otomatik Aç</label>
+    </div>
+
+    <button type="submit" class="btn btn-primary">Kaydet</button>
+</form>

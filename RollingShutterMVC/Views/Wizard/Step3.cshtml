@@ -1,0 +1,28 @@
+﻿@using RollingShutterMVC.Models.ViewsModels
+@model UserSettingsViewModel
+@{
+    ViewData["Title"] = "Adım 3: Kullanıcı Ayarları";
+}
+
+<h2>Kullanıcı Ayarları</h2>
+<form asp-action="Step3" method="post">
+    <div class="form-group">
+        <label asp-for="LoggingIntervalHours">Veri Kaydetme Aralığı (Saat)</label>
+        <select asp-for="LoggingIntervalHours" class="form-control">
+            <option value="1">1 Saat</option>
+            <option value="3">3 Saat</option>
+            <option value="6">6 Saat</option>
+            <option value="12">12 Saat</option>
+            <option value="24">24 Saat</option>
+        </select>
+    </div>
+    <div class="form-group form-check">
+        <input asp-for="DetectAnomalies" class="form-check-input" />
+        <label asp-for="DetectAnomalies" class="form-check-label">Anormallik Tespiti Aktif Olsun</label>
+    </div>
+    <div class="form-group form-check">
+        <input asp-for="AutoOpenShutter" class="form-check-input" />
+        <label asp-for="AutoOpenShutter" class="form-check-label">Panjuru Otomatik Aç</label>
+    </div>
+    <button type="submit" class="btn btn-success">Kurulumu Tamamla</button>
+</form>

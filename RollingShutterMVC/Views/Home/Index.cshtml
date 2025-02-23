@@ -1,0 +1,112 @@
+﻿
+@{
+    ViewData["Title"] = "Dashboard";
+}
+
+<h2>Çevre Sensörü Göstergeleri</h2>
+
+<div class="chart-container">
+    <canvas id="temperatureChart"></canvas>
+    <canvas id="humidityChart"></canvas>
+    <canvas id="pressureChart"></canvas>
+    <canvas id="airQualityChart"></canvas>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+
+<script>
+    let temperatureChart, humidityChart, pressureChart, airQualityChart;
+
+    async function fetchSensorData() {
+        const response = await fetch('/Home/GetSensorData');
+        const data = await response.json();
+
+        if (!data || data.length === 0) {
+        console.warn("Veri bulunamadı.");
+        return;
+    }
+
+        updateCharts(data);
+    }
+
+    function updateCharts(data) {
+         console.log("Veriler updateCharts fonksiyonuna ulaştı:", data);
+
+        const labels = data.map(d => new Date(d.timeStamp).toLocaleTimeString());
+         console.log("X Ekseni Etiketleri:", labels);
+        const temperature = data.filter(d => d.sensorType === "Sıcaklık").map(d => d.value);
+        console.log("Sıcaklık Verileri:", temperature);
+        const humidity = data.filter(d => d.sensorType === "Nem").map(d => d.value);
+
+        const pressure = data.filter(d => d.sensorType === "Basınç").map(d => d.value);
+        const airQuality = data.filter(d => d.sensorType === "HavaKalitesi").map(d => d.value);
+
+        updateChart(temperatureChart, labels, temperature, "Sıcaklık (°C)", "red");
+        updateChart(humidityChart, labels, humidity, "Nem (%)", "blue");
+        updateChart(pressureChart, labels, pressure, "Basınç (hPa)", "green");
+        updateChart(airQualityChart, labels, airQuality, "Hava Kalitesi (KΩ)", "purple");
+    }
+
+    function updateChart(chart, labels, data, label, color) {
+        chart.data.labels = labels;
+        chart.data.datasets[0].data = data;
+        chart.data.datasets[0].label = label;
+        chart.data.datasets[0].borderColor = color;
+        chart.update();
+    }
+
+    function initializeCharts() {
+        temperatureChart = createChart("temperatureChart", "Sıcaklık (°C)");
+        humidityChart = createChart("humidityChart", "Nem (%)");
+        pressureChart = createChart("pressureChart", "Basınç (hPa)");
+        airQualityChart = createChart("airQualityChart", "Hava Kalitesi (KΩ)");
+
+         console.log("Grafikler oluşturuldu");
+        setInterval(fetchSensorData, 5000);
+    }
+
+    function createChart(elementId, label) {
+        const ctx = document.getElementById(elementId).getContext("2d");
+        return new Chart(ctx, {
+            type: "line",
+            data: {
+                labels: [],
+                datasets: [{
+                    label: label,
+                    data: [],
+                    borderColor: "gray",
+                    borderWidth: 2,
+                    fill: false
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: { display: true, title: { display: true, text: "Zaman" } },
+                    y: { display: true, beginAtZero: false }
+                }
+            }
+        });
+    }
+
+    document.addEventListener("DOMContentLoaded", initializeCharts);
+</script>
+
+<style>
+    .chart-container {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 20px;
+        margin-top: 20px;
+    }
+
+    canvas {
+        width: 400px !important; 
+        height: 300px !important;
+        border: 1px solid #ddd;
+        border-radius: 10px;
+    }
+
+</style>
+

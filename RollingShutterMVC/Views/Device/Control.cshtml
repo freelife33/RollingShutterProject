@@ -117,11 +117,9 @@
 
 <button id="btnOpen">Aç</button>
 <button id="btnClose">Kapat</button>
-<button id="btnAuto">Otomatik Mod</button>
-<button id="btnAuto">Otomatik Mod</button>
 
 <script>
-         document.addEventListener("DOMContentLoaded", function () {
+            document.addEventListener("DOMContentLoaded", function () {
         const slider = document.getElementById("slider");
         const sliderValue = document.getElementById("sliderValue");
         const shutter = document.getElementById("shutter");
@@ -130,35 +128,47 @@
         const btnClose = document.getElementById("btnClose");
 
         let currentLevel = 100;
+        let lastSentValue = 100;
 
-        function updateUI(level) {
-            slider.value = level;
-            sliderValue.textContent = level + "%";
-            shutter.style.transform = `scaleY(${level / 90})`;
-            shutter.style.height = `${level}%`;
 
-            
-            const opacity = 0.4 + (level / 100) * 0.6;
-            glassElements.forEach(glass => {
-                glass.style.opacity = opacity;
-            });
+           function updateUI(level) {
+        slider.value = level;
+        sliderValue.textContent = level + "%";
+        shutter.style.transform = `scaleY(${level / 100})`;
+        shutter.style.height = `${level}%`;
 
-            btnOpen.disabled = (level === 0);
-            btnClose.disabled = (level === 100);
-        }
+        const opacity = 0.4 + (level / 300) * 0.6;
+        glassElements.forEach(glass => {
+            glass.style.opacity = opacity;
+        });
 
+        btnOpen.disabled = (level === 0);
+        btnClose.disabled = (level === 100);
+    }
+
+
+
+       
         slider.addEventListener("input", () => {
             const value = parseInt(slider.value);
-            if (value !== currentLevel) {
-                sendCommand(`SET_LEVEL:${value}`);
-                currentLevel = value;
-                updateUI(value);
-            }
+            updateUI(value);
         });
+
+       
+        slider.addEventListener("mouseup", sendFinalCommand);
+        slider.addEventListener("touchend", sendFinalCommand);
+
+        function sendFinalCommand() {
+            const value = parseInt(slider.value);
+            if (value !== lastSentValue) {
+                sendCommand(`${value}`);
+                lastSentValue = value;
+            }
+        }
 
         btnOpen.addEventListener("click", () => {
             if (currentLevel !== 0) {
-                sendCommand("OPEN");
+                sendCommand("100");
                 currentLevel = 0;
                 updateUI(currentLevel);
             }
@@ -166,7 +176,7 @@
 
         btnClose.addEventListener("click", () => {
             if (currentLevel !== 100) {
-                sendCommand("CLOSE");
+                sendCommand("0");
                 currentLevel = 100;
                 updateUI(currentLevel);
             }

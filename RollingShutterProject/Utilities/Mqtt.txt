@@ -1,0 +1,209 @@
+﻿using MQTTnet;
+using RollingShutterProject.Interfaces;
+using RollingShutterProject.Models;
+using RollingShutterProject.UnitOfWork;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace RollingShutterProject.Services
+{
+    public class MqttService : IMqttService
+    {
+        private readonly IMqttClient _mqttClient;
+        private readonly ILogger<MqttService> _logger;
+        private readonly IServiceScopeFactory _serviceScopeFactory;
+
+        public MqttService(ILogger<MqttService> logger, IServiceScopeFactory serviceScopeFactory)
+        {
+            _logger = logger;
+            var factory = new MqttClientFactory();
+            _mqttClient = factory.CreateMqttClient();
+            _serviceScopeFactory = serviceScopeFactory;
+        }
+
+        public async Task ConnectAsync()
+        {
+            var options = new MqttClientOptionsBuilder()
+                .WithClientId("RollingShutterProject")
+                .WithTcpServer("192.168.3.76", 1883)
+                .WithCleanSession()
+                .Build();
+
+            _mqttClient.ApplicationMessageReceivedAsync += async e =>
+            {
+                var topic = e.ApplicationMessage.Topic;
+                var payload = Encoding.UTF8.GetString(e.ApplicationMessage.Payload);
+                _logger.LogInformation($"MQTT Mesajı Alındı: {topic}");
+                _logger.LogInformation($"MQTT Payload: {payload}");
+
+                if (topic == "sensor/data")
+                {
+                    _logger.LogInformation("API 'sensor/data' mesajını işliyor...");
+                    await HandleSensorData(payload);
+                }
+                else if (topic == "device/command")
+                {
+                    _logger.LogInformation("API 'device/command' mesajını işliyor...");
+                    await HandleDeviceCommand(payload);
+                }
+            };
+
+            try
+            {
+                await _mqttClient.ConnectAsync(options);
+                await _mqttClient.SubscribeAsync("sensor/data");
+                await _mqttClient.SubscribeAsync("device/command");
+                _logger.LogInformation("MQTT Client bağlandı ve sensor/data & device/command dinleniyor");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError("MQTT Client bağlanamadı... Hata: " + ex.Message);
+            }
+        }
+
+        private async Task HandleSensorData(string payload)
+        {
+            using (var scope = _serviceScopeFactory.CreateScope())
+            {
+                var unitOfWork = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
+                var notificationService = scope.ServiceProvider.GetRequiredService<INotificationService>();
+                var mqttService = scope.ServiceProvider.GetRequiredService<IMqttService>();
+
+                try
+                {
+                    var sensorData = System.Text.Json.JsonSerializer.Deserialize<SensorData?>(payload);
+                    if (sensorData == null)
+                    {
+                        _logger.LogWarning("SensorData nesnesi NULL döndü!");
+                        return;
+                    }
+
+                    int deviceId = await GetDeviceId(sensorData, unitOfWork);
+                    if (deviceId == 0) return;
+
+                    sensorData.DeviceId = deviceId;
+
+                    // Kullanıcı Ayarlarını Getir
+                    var userSettings = await unitOfWork.UserSettings.GetUserSettings(deviceId)
+                                       ?? new UserSettings
+                                       {
+                                           LoggingIntervalHours = 3,
+                                           DetectAnomalies = false,
+                                           NotifyOnHighTemperature = true,
+                                           NotifyOnPoorAirQuality = true,
+                                           AutoOpenShutter = false
+                                       };
+
+                    // Son kaydedilen veriyi getir
+                    var lastData = await unitOfWork.SensorData.GetLastSensorData(deviceId, sensorData.SensorType!);
+                    bool shouldSave = ShouldSaveData(sensorData, lastData, userSettings);
+
+                    if (shouldSave)
+                    {
+                        await unitOfWork.SensorData.AddAsync(sensorData);
+                        await unitOfWork.CompleteAsync();
+                        _logger.LogInformation($"Yeni Sensör Verisi Kaydedildi: {sensorData.SensorType} - {sensorData.Value}");
+                    }
+
+                    // Bildirim ve Panjur Açma
+                    await HandleNotifications(sensorData, userSettings, notificationService, mqttService);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError($"MQTT verisi işlenirken hata oluştu: {ex.Message}");
+                }
+            }
+        }
+
+        private async Task HandleDeviceCommand(string payload)
+        {
+            using (var scope = _serviceScopeFactory.CreateScope())
+            {
+                var unitOfWork = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
+
+                try
+                {
+                    var command = new DeviceCommand
+                    {
+                        Command = payload,
+                        Timestamp = DateTime.UtcNow
+                    };
+
+                    await unitOfWork.DeviceCommands.AddAsync(command);
+                    await unitOfWork.CompleteAsync();
+                    _logger.LogInformation($"Komut Kaydedildi: {payload}");
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError($"Komut kaydedilirken hata oluştu: {ex.Message}");
+                }
+            }
+        }
+
+        private async Task<int> GetDeviceId(SensorData sensorData, IUnitOfWork unitOfWork)
+        {
+            int deviceId = 0;
+            if (!string.IsNullOrEmpty(sensorData.DeviceIdString) && int.TryParse(sensorData.DeviceIdString, out int parsedId))
+            {
+                deviceId = parsedId;
+            }
+
+            if (deviceId == 0)
+            {
+                var device = await unitOfWork.Devices.GetDeviceBySensorType(sensorData.SensorType!);
+                deviceId = device?.Id ?? 0;
+            }
+
+            if (deviceId == 0)
+            {
+                _logger.LogWarning($"Cihaz ID bulunamadı. SensorType: {sensorData.SensorType!}");
+            }
+
+            return deviceId;
+        }
+
+        private bool ShouldSaveData(SensorData newData, SensorData? lastData, UserSettings settings)
+        {
+            if (lastData == null) return true;
+
+            TimeSpan timeDifference = DateTime.UtcNow - lastData.TimeStamp;
+            bool isTimeToSave = timeDifference.TotalHours >= settings.LoggingIntervalHours;
+
+            float valueDifference = Math.Abs(newData.Value - lastData.Value);
+            float changePercentage = lastData.Value != 0 ? (valueDifference / lastData.Value) * 100 : 0;
+            bool isSignificantChange = changePercentage >= (settings.DetectAnomalies ? 3 : float.MaxValue);
+
+            return isTimeToSave || isSignificantChange;
+        }
+
+        private async Task HandleNotifications(SensorData sensorData, UserSettings settings, INotificationService notificationService, IMqttService mqttService)
+        {
+            bool shouldNotify = (sensorData.SensorType == "Sıcaklık" && sensorData.Value >= 35 && settings.NotifyOnHighTemperature) ||
+                                (sensorData.SensorType == "HavaKalitesi" && sensorData.Value > 100 && settings.NotifyOnPoorAirQuality);
+
+            if (shouldNotify)
+            {
+                await notificationService.SendEmailAsync("Dikkat! Panjur kapalıyken ortam koşulları kötüleşti.", "Lütfen panjuru açın.");
+                _logger.LogInformation("Kullanıcıya bildirim gönderildi.");
+            }
+
+            if (settings.AutoOpenShutter && shouldNotify)
+            {
+                await mqttService.PublishMessageAsync("device/command", "OPEN");
+                _logger.LogInformation("Otomatik panjur açma komutu gönderildi.");
+            }
+        }
+
+        public async Task PublishMessageAsync(string topic, string message)
+        {
+            var mqttMessage = new MqttApplicationMessageBuilder()
+                .WithTopic(topic)
+                .WithPayload(message)
+                .WithQualityOfServiceLevel(MQTTnet.Protocol.MqttQualityOfServiceLevel.AtLeastOnce)
+                .Build();
+
+            await _mqttClient.PublishAsync(mqttMessage);
+            _logger.LogInformation($"MQTT Mesaj Gönderildi : {topic} - {message}");
+        }
+    }
+}

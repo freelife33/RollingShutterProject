@@ -9,6 +9,7 @@ namespace RollingShutterProject.UnitOfWork
         IUserRepository Users { get; }
         IUserSettings UserSettings { get; }
         ISystemSettingsRepository SystemSettings { get; }
+        IUserCommandRepository UserCommands { get; }
         Task<int> CompleteAsync();
     }
 }

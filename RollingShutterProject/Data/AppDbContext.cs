@@ -16,6 +16,7 @@ namespace RollingShutterProject.Data
         public DbSet<User> Users { get; set; }
         public DbSet<UserSettings> UserSettings { get; set; }
         public DbSet<SystemSettings> SystemSettings { get; set; }
+        public DbSet<UserCommand> UserCommands { get; set; }
 
     }
 }

@@ -5,7 +5,7 @@ namespace RollingShutterProject.Interfaces
     public interface ISensorDataRepository : IRepository<SensorData>
     {
         Task<IEnumerable<SensorData>> GetSensorDataByDeviceIdAsync(int deviceId);
-        Task<SensorData> GetSensorDataByIdAsync(int id);
-        Task<SensorData?> GetLastSensorData(int deviceId, string sensorType);
+        Task<SensorData?> GetSensorDataByIdAsync(int id);
+        Task<SensorData?> GetLastSensorData(string sensorType, int? deviceId );
     }
 }

@@ -37,6 +37,11 @@ builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddSingleton<IMqttService, MqttService>();
 builder.Services.AddSingleton<INotificationService, NotificationService>();
 
+
+
+builder.Services.AddHttpContextAccessor();
+
+
 builder.Services.AddControllers();
 
 builder.WebHost.ConfigureKestrel(options =>

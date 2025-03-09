@@ -16,6 +16,7 @@ namespace RollingShutterProject.UnitOfWork
             Users = new UserRepository(_context);
             UserSettings = new UserSettingsRepository(_context);
             SystemSettings=new SystemSettingsRepository(_context);
+            UserCommands = new UserCommandRepository(_context);
         }
 
         public IDeviceRepository Devices { get; private set; }
@@ -26,6 +27,7 @@ namespace RollingShutterProject.UnitOfWork
 
         public IUserSettings UserSettings { get; private set; }
         public ISystemSettingsRepository SystemSettings { get; private set; }
+        public IUserCommandRepository UserCommands { get; set; }
 
         public async Task<int> CompleteAsync()
         {

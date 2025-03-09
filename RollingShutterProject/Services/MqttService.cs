@@ -2,30 +2,32 @@
 using RollingShutterProject.Interfaces;
 using RollingShutterProject.Models;
 using RollingShutterProject.UnitOfWork;
+using System.Security.Claims;
 using System.Text;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 
 namespace RollingShutterProject.Services
 {
-
     public class MqttService : IMqttService
     {
         private readonly IMqttClient _mqttClient;
         private readonly ILogger<MqttService> _logger;
-        //private readonly IUnitOfWork _unitOfWork;
         private readonly IServiceScopeFactory _serviceScopeFactory;
+        private readonly IHttpContextAccessor _httpContextAccessor;
 
-        public MqttService(ILogger<MqttService> logger, IServiceScopeFactory serviceScopeFactory)
+        public MqttService(ILogger<MqttService> logger, IServiceScopeFactory serviceScopeFactory, IHttpContextAccessor httpContextAccessor)
         {
             _logger = logger;
             var factory = new MqttClientFactory();
             _mqttClient = factory.CreateMqttClient();
             _serviceScopeFactory = serviceScopeFactory;
+            _httpContextAccessor = httpContextAccessor;
         }
 
         public async Task ConnectAsycn()
         {
-
             var options = new MqttClientOptionsBuilder()
                 .WithClientId("RollingShutterProject")
                 .WithTcpServer("192.168.3.76", 1883)
@@ -38,170 +40,197 @@ namespace RollingShutterProject.Services
                 var payload = Encoding.UTF8.GetString(e.ApplicationMessage.Payload);
                 _logger.LogInformation($"MQTT Mesajı Alındı: {topic}");
                 _logger.LogInformation($"MQTT Payload: {payload}");
+
                 if (topic == "sensor/data")
                 {
                     _logger.LogInformation("API 'sensor/data' mesajını işliyor...");
                     await HandleSensorData(payload);
                 }
             };
+
             try
             {
                 await _mqttClient.ConnectAsync(options);
                 await _mqttClient.SubscribeAsync("sensor/data");
-                _logger.LogInformation("MQTT Client bağlandı ve sensor/data' dinleniyor");
-
+                _logger.LogInformation("MQTT Client bağlandı ve 'sensor/data' dinleniyor");
             }
             catch (Exception ex)
             {
-
-                _logger.LogInformation("MQTT Client bağlanamadı... Hata: " + ex.Message);
+                _logger.LogError($"MQTT Client bağlanamadı... Hata: {ex.Message}");
             }
-
-
         }
 
         private async Task HandleSensorData(string payload)
         {
-
             using (var scope = _serviceScopeFactory.CreateScope())
             {
                 var unitOfWork = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
-                var notificationService = scope.ServiceProvider.GetRequiredService<INotificationService>();
-                var mqttService = scope.ServiceProvider.GetRequiredService<IMqttService>();
 
                 try
                 {
-                    _logger.LogInformation($"Gelen Payload: {payload}");
+                    _logger.LogInformation($"Gelen JSON: {payload}");
 
-                    var sensorData = System.Text.Json.JsonSerializer.Deserialize<SensorData?>(payload);
-
-                    if (sensorData == null) 
+                    // JSON'u Deserialize Et
+                    EnvironmentalSensorData? sensorData;
+                    try
                     {
-                        _logger.LogWarning("SensorData nesnesi NULL döndü!");
+                        sensorData = JsonSerializer.Deserialize<EnvironmentalSensorData>(payload);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError($"JSON deserialize hatası: {ex.Message}");
                         return;
                     }
 
-                    
-                    int deviceId = 0;
-                    if (!string.IsNullOrEmpty(sensorData.DeviceIdString) && int.TryParse(sensorData.DeviceIdString, out int parsedId))
+                    if (sensorData == null)
                     {
-                        deviceId = parsedId;
+                        _logger.LogError("sensorData NULL döndü.");
+                        return;
                     }
 
-
-                    if (deviceId == 0)
+                    int currentUserId = GetCurrentUserId();
+                    var userSettings = await unitOfWork.UserSettings.GetUserSettings(currentUserId) ?? new UserSettings
                     {
-                        var device = await unitOfWork.Devices.GetDeviceBySensorType(sensorData.SensorType!);
-                        deviceId = device?.Id ?? 0;
-
-                        if (deviceId == 0)
-                        {
-                            _logger.LogWarning($"Cihaz ID bulunamadı. SensorType: {sensorData.SensorType!}");
-                            return;
-                        }
-                    }
-
-                    sensorData.DeviceId = deviceId;
-
-                    if (deviceId == 0)
-                    {
-                        var device = await unitOfWork.Devices.GetDeviceBySensorType(sensorData.SensorType!);
-                        deviceId = device?.Id ?? 0;
-
-                        if (deviceId == 0)
-                        {
-                            _logger.LogWarning($"Cihaz ID bulunamadı. SensorType: {sensorData.SensorType}");
-                            return;
-                        }
-                    }
-
-                    sensorData.DeviceId = deviceId;
-
-
-                    // **Kullanıcı Ayarlarını Getir**
-                    var userSettings = await unitOfWork.UserSettings.GetUserSettings(sensorData.DeviceId)
-                                       ?? new UserSettings
-                                       {
-                                           UserId = 0,
-                                           LoggingIntervalHours = 3,
-                                           DetectAnomalies = false,
-                                           NotifyOnHighTemperature = true,
-                                           NotifyOnPoorAirQuality = true,
-                                           AutoOpenShutter = false
-                                       };
+                        LoggingIntervalHours = 3, // Varsayılan 3 saat
+                        DetectAnomalies = true
+                    };
 
                     int intervalHours = userSettings.LoggingIntervalHours;
                     float threshold = userSettings.DetectAnomalies ? 3 : float.MaxValue;
 
-                    // **Son Kaydedilen Veriyi Getir**
-                    var lastData = await unitOfWork.SensorData.GetLastSensorData(sensorData.DeviceId, sensorData.SensorType!);
-                    bool shouldSave = lastData == null;
+                    // **Sensör verilerini işle**
+                    var sensorValues = new Dictionary<string, float>
+            {
+                { "Sıcaklık", sensorData.Temperature },
+                { "Hava Kalitesi", sensorData.AirQuality }
+            };
 
-                    // **Zaman ve Değer Kontrolü**
-                    if (!shouldSave)
+                    foreach (var sensorType in sensorValues.Keys)
                     {
-                        TimeSpan timeDifference = DateTime.UtcNow - lastData!.TimeStamp;
-                        bool isTimeToSave = timeDifference.TotalHours >= intervalHours;
+                        // **Her sensör için ayrı `deviceId` bul**
+                        int? deviceId = sensorData.DeviceId > 0 ? sensorData.DeviceId : null;
 
-                        float valueDifference = Math.Abs(sensorData.Value - lastData.Value);
-                        float changePercentage = lastData.Value != 0 ? (valueDifference / lastData.Value) * 100 : 0;
-                        bool isSignificantChange = changePercentage >= threshold;
+                        if (deviceId == null)
+                        {
+                            var device = await unitOfWork.Devices.GetDeviceBySensorType(sensorType);
+                            deviceId = device?.Id;
+                        }
 
-                        shouldSave = isTimeToSave || isSignificantChange;
+                        // Eğer hala `deviceId` bulunamadıysa, hata ver ve işlemi devam ettirme
+                        if (deviceId == null)
+                        {
+                            _logger.LogError($"HATA: `{sensorType}` için bağlı bir cihaz bulunamadı.");
+                            continue;
+                        }
+
+                        var lastData = await unitOfWork.SensorData.GetLastSensorData(sensorType, deviceId);
+                        bool shouldSave = lastData == null;
+
+                        float currentValue = sensorValues[sensorType];
+
+                        if (!shouldSave)
+                        {
+                            TimeSpan timeDifference = DateTime.UtcNow - lastData!.TimeStamp;
+                            bool isTimeToSave = timeDifference.TotalHours >= intervalHours;
+
+                            float valueDifference = Math.Abs(currentValue - lastData.Value);
+                            float changePercentage = lastData.Value != 0 ? (valueDifference / lastData.Value) * 100 : 0;
+                            bool isSignificantChange = changePercentage >= threshold;
+
+                            shouldSave = isTimeToSave || isSignificantChange;
+                        }
+
+                        if (shouldSave)
+                        {
+                            var newSensorData = new SensorData
+                            {
+                                DeviceId = deviceId.Value,
+                                DeviceIdString = deviceId.ToString(),
+                                SensorType = sensorType,
+                                Value = currentValue,
+                                TimeStamp = DateTime.UtcNow
+                            };
+
+                            await unitOfWork.SensorData.AddAsync(newSensorData);
+                            await unitOfWork.CompleteAsync();
+                            _logger.LogInformation($"Yeni Sensör Verisi Kaydedildi: {sensorType} - {currentValue} - Device ID: {deviceId}");
+                        }
+                        else
+                        {
+                            _logger.LogInformation($"Veri kaydedilmedi: {sensorType} süresi dolmadı veya değişim %3’ten az.");
+                        }
+
+                        // **Tehlikeli değerlerde bildirim gönder**
+                        bool shouldNotify = (sensorType == "Sıcaklık" && currentValue >= 35 && userSettings.NotifyOnHighTemperature) ||
+                                            (sensorType == "Hava Kalitesi" && currentValue > 100 && userSettings.NotifyOnPoorAirQuality);
+
+                        if (shouldNotify)
+                        {
+                            await SendNotification(deviceId.Value, sensorType, currentValue);
+                        }
                     }
-
-                    // **Veriyi Veritabanına Kaydet**
-                    if (shouldSave)
-                    {
-                        await unitOfWork.SensorData.AddAsync(sensorData);
-                        await unitOfWork.CompleteAsync();
-                        _logger.LogInformation($"Yeni Sensör Verisi Kaydedildi: {sensorData.SensorType} - {sensorData.Value}");
-                    }
-                    else
-                    {
-                        _logger.LogInformation($"Veri kaydedilmedi: Süre dolmadı veya değişim % {threshold}'den az: {sensorData.SensorType} - {sensorData.Value}");
-                    }
-
-
-                    // **Bildirim Gönderme (Sıcaklık veya Hava Kalitesi Kötüleşirse)**
-                    bool shouldNotify = (sensorData.SensorType == "Sıcaklık" && sensorData.Value >= 35 && userSettings.NotifyOnHighTemperature) ||
-                                        (sensorData.SensorType == "HavaKalitesi" && sensorData.Value > 100 && userSettings.NotifyOnPoorAirQuality);
-
-                    if (shouldNotify)
-                    {
-                        await notificationService.SendEmailAsync("Dikkat! Panjur kapalıyken ortam koşulları kötüleşti.", "Lütfen panjuru açın.");
-                        _logger.LogInformation("Kullanıcıya bildirim gönderildi.");
-                    }
-
-
-
-                    // **Panjuru Otomatik Açma**
-                    if (userSettings.AutoOpenShutter && shouldNotify)
-                    {
-                        await mqttService.PublishMessageAsync("device/command", "OPEN");
-                        _logger.LogInformation("Otomatik panjur açma komutu gönderildi.");
-                    }
-
-                   
                 }
                 catch (Exception ex)
                 {
-
                     _logger.LogError($"MQTT verisi işlenirken hata oluştu: {ex.Message}");
                 }
             }
         }
 
+
         public async Task PublishMessageAsync(string topic, string message)
         {
-            var mqttMessage = new MqttApplicationMessageBuilder()
-                .WithTopic(topic)
-                .WithPayload(message)
-                .WithQualityOfServiceLevel(MQTTnet.Protocol.MqttQualityOfServiceLevel.AtLeastOnce)
-                .Build();
-            await _mqttClient.PublishAsync(mqttMessage);
-            _logger.LogInformation($"MQTT Mesaj Gönderildi : {topic} - {message}");
+            try
+            {
+                var mqttMessage = new MqttApplicationMessageBuilder()
+                    .WithTopic(topic)
+                    .WithPayload(message)
+                    .WithQualityOfServiceLevel(MQTTnet.Protocol.MqttQualityOfServiceLevel.AtLeastOnce)
+                    .Build();
+
+                await _mqttClient.PublishAsync(mqttMessage);
+                _logger.LogInformation($"MQTT Mesaj Gönderildi: {topic} - {message}");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"MQTT Mesaj Gönderme Hatası: {ex.Message}");
+            }
         }
+
+        private async Task SendNotification(int deviceId, string sensorType, float value)
+        {
+            using (var scope = _serviceScopeFactory.CreateScope())
+            {
+                var notificationService = scope.ServiceProvider.GetRequiredService<INotificationService>();
+
+                string subject = "Dikkat! Ortam koşulları kötüleşti.";
+                string message = $"{sensorType} değeri kritik seviyeye ulaştı: {value}";
+
+                await notificationService.SendEmailAsync(subject, message);
+                _logger.LogInformation($"Kullanıcıya bildirim gönderildi: {message}");
+            }
+        }
+
+        private int GetCurrentUserId()
+        {
+            var userIdClaim = _httpContextAccessor.HttpContext?.User?.FindFirst(ClaimTypes.NameIdentifier);
+            return userIdClaim != null ? int.Parse(userIdClaim.Value) : 0;
+        }
+
     }
 
+    public class EnvironmentalSensorData
+    {
+        [JsonPropertyName("deviceId")]
+        public int DeviceId { get; set; }
+
+        [JsonPropertyName("temperature")]
+        public float Temperature { get; set; }
+
+        [JsonPropertyName("airQuality")]
+        public float AirQuality { get; set; }
+
+        [JsonPropertyName("shutterPercentage")]
+        public float? ShutterPercentage { get; set; }
+    }
 }

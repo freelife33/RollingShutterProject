@@ -15,10 +15,14 @@ namespace RollingShutterProject.Models
 
         
         public bool NotifyOnHighTemperature { get; set; } = true; 
-        public bool NotifyOnPoorAirQuality { get; set; } = true; 
+        public bool NotifyOnPoorAirQuality { get; set; } = true;
+        public bool AutoOpenShutterOnHighTemperature { get; set; }
+        public bool AutoOpenShutterOnPoorAirQuality { get; set; }
+        public float HighTemperatureThreshold { get; set; }
+        public float PoorAirQualityThreshold { get; set; }
 
-        
-        public bool AutoOpenShutter { get; set; } = false;
+
+        public bool AutoOpenShutter { get; set; }
 
         public string? MqttServer { get; set; }
         public string? MqttClientId { get; set; }

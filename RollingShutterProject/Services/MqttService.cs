@@ -88,7 +88,7 @@ namespace RollingShutterProject.Services
                         return;
                     }
 
-                    int currentUserId = GetCurrentUserId();
+                    int currentUserId = 1;// GetCurrentUserId();
                     var userSettings = await unitOfWork.UserSettings.GetUserSettings(currentUserId) ?? new UserSettings
                     {
                         LoggingIntervalHours = 3, // Varsayılan 3 saat
@@ -104,6 +104,58 @@ namespace RollingShutterProject.Services
                 { "Sıcaklık", sensorData.Temperature },
                 { "Hava Kalitesi", sensorData.AirQuality }
             };
+
+                    //if (userSettings.AutoOpenShutter)
+                    //{
+                    //    if ((sensorData.Temperature >= 35 && userSettings.NotifyOnHighTemperature) ||
+                    //       (sensorData.AirQuality >= 100 && userSettings.NotifyOnPoorAirQuality))
+                    //    {
+                    //        await PublishMessageAsync("device/command", "OPEN");
+                    //        await SaveUserCommand(0, "Ortam koşulları nedeniyle otomatik olarak açıldı.");
+                    //        _logger.LogInformation("Ortam koşullarına göre panjur otomatik açıldı.");
+                    //    }
+                    //}
+
+                    // Tüm sensör değerlerini tek seferde kontrol edelim.
+                    bool shouldOpenShutter = false;
+                    bool shouldCloseShutter = false;
+
+                    if (userSettings.AutoOpenShutter)
+                    {
+                        // Açılması için herhangi bir kritik durum varsa TRUE dönecek
+                        if ((sensorData.Temperature >= 35 && userSettings.NotifyOnHighTemperature) ||
+                            (sensorData.AirQuality >= 100 && userSettings.NotifyOnPoorAirQuality))
+                        {
+                            shouldOpenShutter = true;
+                        }
+
+                        // Kapatılması için tüm koşullar normale dönerse TRUE dönecek
+                        if ((sensorData.Temperature <= 25 && sensorData.AirQuality <= 60))
+                        {
+                            shouldCloseShutter = true;
+                        }
+
+                        // Komut gönderme işlemini optimize et (her seferinde aç-kapa yapma)
+                        if (shouldOpenShutter)
+                        {
+                            await PublishMessageAsync("device/command", "OPEN");
+                            await SaveUserCommand(0, $"Ortam koşulları nedeniyle otomatik açıldı (Sıcaklık: {sensorData.Temperature}, Hava Kalitesi: {sensorData.AirQuality}).");
+                            _logger.LogInformation($"Otomatik açıldı (Sıcaklık: {sensorData.Temperature}, Hava Kalitesi: {sensorData.AirQuality})");
+                        }
+                        else if (shouldCloseShutter)
+                        {
+                            await PublishMessageAsync("device/command", "CLOSE");
+                            await SaveUserCommand(0, $"Ortam koşulları normale döndüğünden otomatik kapandı (Sıcaklık: {sensorData.Temperature}, Hava Kalitesi: {sensorData.AirQuality}).");
+                            _logger.LogInformation($"Otomatik panjur kapandı.");
+                        }
+                        else
+                        {
+                            _logger.LogInformation("Ortam koşullarında değişiklik yok, komut gönderilmedi.");
+                        }
+                    }
+
+
+
 
                     foreach (var sensorType in sensorValues.Keys)
                     {
@@ -127,6 +179,8 @@ namespace RollingShutterProject.Services
                         bool shouldSave = lastData == null;
 
                         float currentValue = sensorValues[sensorType];
+
+                       
 
                         if (!shouldSave)
                         {
@@ -216,6 +270,37 @@ namespace RollingShutterProject.Services
             var userIdClaim = _httpContextAccessor.HttpContext?.User?.FindFirst(ClaimTypes.NameIdentifier);
             return userIdClaim != null ? int.Parse(userIdClaim.Value) : 0;
         }
+
+        private async Task SaveUserCommand(int deviceId, string command)
+        {
+            using (var scope = _serviceScopeFactory.CreateScope())
+            {
+                var unitOfWork = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
+
+                try
+                {
+                    int currentUserId = GetCurrentUserId();
+
+                    var userCommand = new UserCommand
+                    {
+                        UserId = currentUserId, 
+                        DeviceId = deviceId,
+                        Command = command,
+                        TimeStamp = DateTime.UtcNow
+                    };
+
+                    await unitOfWork.UserCommands.AddAsync(userCommand);
+                    await unitOfWork.CompleteAsync();
+
+                    _logger.LogInformation($"Kullanıcı komutu kaydedildi: {command} - Kullanıcı ID: {currentUserId}");
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError($"Kullanıcı komutu kaydedilirken hata oluştu: {ex.Message}");
+                }
+            }
+        }
+
 
     }
 

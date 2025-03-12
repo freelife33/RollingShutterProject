@@ -8,5 +8,6 @@ namespace RollingShutterProject.Interfaces
         //Task AddAsync(UserCommand userCommand);
         Task<IEnumerable<UserCommand>> GetCommandsByUserIdAsync(int userId);
         Task<UserCommand?> GetLastManualUserCommandAsync();
+        Task<List<UserCommand>> GetRecentCommandsAsync(int count);
     }
 }

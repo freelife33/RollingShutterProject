@@ -43,17 +43,15 @@
 
     #shutter {
         width: 100%;
-        height: 0%; /* Başlangıçta tamamen açık */
+        height: 0%;
         background: linear-gradient(to bottom, #555, #777);
         position: absolute;
-        top: 0; /* Panjurun yukarıda sabit kalmasını sağlıyoruz */
+        top: 0;
         transition: height 0.8s ease;
         border-bottom: 2px solid #333;
         border-top: 2px solid #333;
         border-radius: 0 0 10px 10px;
     }
-
-
 
     input[type="range"] {
         width: 300px;
@@ -121,36 +119,28 @@
                 if (!response.ok) throw new Error("API hatası: " + response.statusText);
 
                 const data = await response.json();
-                currentLevel = data.openPercentage;
+                currentLevel = data.openPercentage;  // 🔄 Gelen değeri doğrudan kullan
                 updateUI(currentLevel);
             } catch (error) {
                 console.error("Panjur durumu alınırken hata oluştu:", error);
             }
         }
 
-           function updateUI(level) {
-        level = 100 - level;  // 🔄 Gelen değeri tersine çevir (100 -> 0, 0 -> 100)
+        function updateUI(level) {
+            slider.value = level;
+            sliderValue.textContent = level + "%";
+            shutter.style.height = `${level}%`;
 
-        slider.value = level;
-        sliderValue.textContent = level + "%";
+            // Camın opaklığını değiştir
+            const opacity = 0.4 + (level / 300) * 0.6;
+            glassElements.forEach(glass => {
+                glass.style.opacity = opacity;
+            });
 
-        const shutterElement = document.getElementById("shutter");
-
-        // 🔄 Panjurun yüksekliğini ayarla (Açık/Kapalı ters olacak)
-        shutterElement.style.height = `${level}%`;
-
-        // Camın opaklığını değiştir
-        const opacity = 0.4 + (level / 300) * 0.6;
-        glassElements.forEach(glass => {
-            glass.style.opacity = opacity;
-        });
-
-        // 📌 Aç/Kapat butonlarını güncelle
-        btnOpen.disabled = (level === 0);   // Tamamen açık ise Aç butonu pasif
-        btnClose.disabled = (level === 100); // Tamamen kapalı ise Kapat butonu pasif
-    }
-
-
+            // 📌 Aç/Kapat butonlarını güncelle
+            btnOpen.disabled = (level === 0);
+            btnClose.disabled = (level === 100);
+        }
 
         // 📌 Sayfa açıldığında API'den veri çek
         await fetchShutterStatus();
@@ -173,24 +163,24 @@
             }
         }
 
-        // 📌 Aç / Kapat Butonları
+       
         btnOpen.addEventListener("click", () => {
-            if (currentLevel !== 100) {
-                sendCommand("OPEN");
-                currentLevel = 100;
-                updateUI(currentLevel);
-            }
-        });
-
-        btnClose.addEventListener("click", () => {
             if (currentLevel !== 0) {
-                sendCommand("CLOSE");
+                sendCommand("OPEN");
                 currentLevel = 0;
                 updateUI(currentLevel);
             }
         });
 
-        // 📌 API'ye Komut Gönderme
+        btnClose.addEventListener("click", () => {
+            if (currentLevel !== 100) {
+                sendCommand("CLOSE");
+                currentLevel = 100;
+                updateUI(currentLevel);
+            }
+        });
+
+        
         function sendCommand(command) {
             const payload = { command };
             fetch("/Device/send-command-js", {

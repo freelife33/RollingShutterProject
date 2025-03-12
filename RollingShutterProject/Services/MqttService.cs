@@ -102,20 +102,11 @@ namespace RollingShutterProject.Services
                     var sensorValues = new Dictionary<string, float>
             {
                 { "Sıcaklık", sensorData.Temperature },
-                { "Hava Kalitesi", sensorData.AirQuality }
+                { "Hava Kalitesi", sensorData.AirQuality },
+                 { "Işık", sensorData.Lux }
             };
 
-                    //if (userSettings.AutoOpenShutter)
-                    //{
-                    //    if ((sensorData.Temperature >= 35 && userSettings.NotifyOnHighTemperature) ||
-                    //       (sensorData.AirQuality >= 100 && userSettings.NotifyOnPoorAirQuality))
-                    //    {
-                    //        await PublishMessageAsync("device/command", "OPEN");
-                    //        await SaveUserCommand(0, "Ortam koşulları nedeniyle otomatik olarak açıldı.");
-                    //        _logger.LogInformation("Ortam koşullarına göre panjur otomatik açıldı.");
-                    //    }
-                    //}
-
+                   
                     // Tüm sensör değerlerini tek seferde kontrol edelim.
                     bool shouldOpenShutter = false;
                     bool shouldCloseShutter = false;
@@ -212,6 +203,22 @@ namespace RollingShutterProject.Services
                         else
                         {
                             _logger.LogInformation($"Veri kaydedilmedi: {sensorType} süresi dolmadı veya değişim %3’ten az.");
+                        }
+
+                        if (sensorType == "Işık")
+                        {
+                            if (currentValue > 800)
+                            {
+                                await PublishMessageAsync("device/command", "OPEN");
+                                await SaveUserCommand(deviceId.Value, $"Işık seviyesi yüksek ({currentValue} lux), panjur açıldı.", true);
+                                _logger.LogInformation($"Panjur otomatik açıldı (Lux: {currentValue})");
+                            }
+                            else if (currentValue < 100)
+                            {
+                                await PublishMessageAsync("device/command", "CLOSE");
+                                await SaveUserCommand(deviceId.Value, $"Işık seviyesi düşük ({currentValue} lux), panjur kapandı.", true);
+                                _logger.LogInformation($"Panjur otomatik kapandı (Lux: {currentValue})");
+                            }
                         }
 
                         // **Tehlikeli değerlerde bildirim gönder**
@@ -318,5 +325,8 @@ namespace RollingShutterProject.Services
 
         [JsonPropertyName("shutterPercentage")]
         public float? ShutterPercentage { get; set; }
+
+        [JsonPropertyName("lux")]
+        public float Lux { get; set; }
     }
 }

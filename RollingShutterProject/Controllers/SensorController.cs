@@ -68,11 +68,13 @@ namespace RollingShutterProject.Controllers
 
             var latestTemperature = await _unitOfWork.SensorData.GetLastSensorData("Sıcaklık",null);
             var latestAirQuality = await _unitOfWork.SensorData.GetLastSensorData("Hava Kalitesi",null);
+            var lux = await _unitOfWork.SensorData.GetLastSensorData("Işık", null);
 
             return Ok(new
             {
                 temperature = latestTemperature?.Value,
                 airQuality = latestAirQuality?.Value,
+                lux = lux?.Value,
                 timestamp = DateTime.UtcNow
             });
         }
@@ -102,18 +104,18 @@ namespace RollingShutterProject.Controllers
             else if (lastCommand.Command!.Contains("CLOSE", StringComparison.OrdinalIgnoreCase) ||
                      lastCommand.Command.Contains("kapandı", StringComparison.OrdinalIgnoreCase))
             {
-                percentage = 0;
+                percentage = 100;
             }
             else if (lastCommand.Command.Contains("OPEN", StringComparison.OrdinalIgnoreCase) ||
                      lastCommand.Command.Contains("açıldı", StringComparison.OrdinalIgnoreCase))
             {
-                percentage = 100;
+                percentage = 0;
             }
 
             string statusText = percentage switch
             {
-                0 => "Kapalı",
-                100 => "Tam Açık",
+                100 => "Kapalı",
+                0 => "Tam Açık",
                 _ => $"%{percentage} Açık"
             };
 

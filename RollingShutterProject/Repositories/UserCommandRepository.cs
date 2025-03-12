@@ -21,5 +21,13 @@ namespace RollingShutterProject.Repositories
                 .OrderByDescending(c => c.TimeStamp)
                 .FirstOrDefaultAsync();
         }
+
+        public async Task<List<UserCommand>> GetRecentCommandsAsync(int count)
+        {
+            return await _context.UserCommands
+        .OrderByDescending(c => c.TimeStamp)
+        .Take(count)
+        .ToListAsync();
+        }
     }
 }

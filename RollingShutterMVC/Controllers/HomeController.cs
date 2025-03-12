@@ -26,7 +26,7 @@ namespace RollingShutterMVC.Controllers
             _logger = logger;
             _unitOfWork = unitOfWork;
             _httpClient = httpClient;
-            _apiBaseUrl = configuration["BackendApiUrl"];
+            _apiBaseUrl = configuration["BackendApiUrl"]!;
         }
 
         public async Task<IActionResult> Index()
@@ -46,6 +46,14 @@ namespace RollingShutterMVC.Controllers
             return View();
         }
 
+       
+        public  IActionResult GetUserLogs()
+        {
+            //var logs = await _unitOfWork.UserCommands.GetRecentCommandsAsync(10);
+            ViewBag.baseApiUrl = _apiBaseUrl;
+            return View();
+        }
+        
         public IActionResult Privacy()
         {
             return View();
@@ -81,25 +89,5 @@ namespace RollingShutterMVC.Controllers
             return View(devices);
         }
 
-        [HttpGet]
-        public IActionResult GetSensorData()
-        {
-            var sensorData = new List<SensorDataDto>
-    {
-        new SensorDataDto { SensorType = "Sýcaklýk", Value = 25.3f, TimeStamp = DateTime.Now.AddMinutes(-5) },
-        new SensorDataDto { SensorType = "Nem", Value = 45.8f, TimeStamp = DateTime.Now.AddMinutes(-4) },
-        new SensorDataDto { SensorType = "Basýnç", Value = 1013.5f, TimeStamp = DateTime.Now.AddMinutes(-3) },
-        new SensorDataDto { SensorType = "HavaKalitesi", Value = 85.2f, TimeStamp = DateTime.Now.AddMinutes(-2) }
-    };
-
-
-            var options = new JsonSerializerOptions
-            {
-                PropertyNamingPolicy = JsonNamingPolicy.CamelCase, // JavaScript tarafýnda camelCase kullanýlýr
-                WriteIndented = false, // JSON'u sýkýþtýrýr
-                Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping // Türkçe karakter desteði
-            };
-            return Json(sensorData, options);
-        }
     }
 }

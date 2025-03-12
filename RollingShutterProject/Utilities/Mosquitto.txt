@@ -1,0 +1,1 @@
+﻿mosquitto_pub -h 192.168.3.76 -p 1883 -t "sensor/data" -m "{\"temperature\":28.5,\"airQuality\":85,\"lux\":50}"

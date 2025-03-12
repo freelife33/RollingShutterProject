@@ -3,7 +3,7 @@
     #shutterStatus {
         font-size: 18px;
         font-weight: bold;
-        color: #AD1980; /* Panjur durumunu vurgulamak için renk */
+        color: #AD1980;
         margin-top: 10px;
     }
 
@@ -37,7 +37,14 @@
                         data: [],
                         fill:true,
                         backgroundColor: 'rgba(37, 16, 128, 0.3)'
+                    },
+                    {
+                        label: 'Işık',
+                        data: [],
+                        fill:true,
+                        backgroundColor: 'lightskyblue'
                     }
+
                 ]
             },
                  options: {
@@ -79,6 +86,7 @@
             sensorChart.data.labels.push(now);
             sensorChart.data.datasets[0].data.push(data.temperature);
             sensorChart.data.datasets[1].data.push(data.airQuality);
+            sensorChart.data.datasets[2].data.push(data.lux);
 
                 if (sensorChart.data.labels.length > MAX_DATA_COUNT) {
             sensorChart.data.labels.shift(); // en eski zamanı kaldır

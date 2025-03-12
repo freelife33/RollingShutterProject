@@ -1,0 +1,56 @@
+﻿<h2>Kullanıcı Logları</h2>
+
+<table id="logTable" border="1">
+    <thead>
+        <tr>
+            <th>Zaman</th>
+            <th>Kullanıcı</th>
+            <th>Komut</th>
+            <th>Otomatik mi?</th>
+        </tr>
+    </thead>
+    <tbody>
+    </tbody>
+</table>
+
+<script>
+    document.addEventListener("DOMContentLoaded", async function () {
+        const baseApiUrl = '@ViewBag.baseApiUrl';
+
+        async function fetchUserLogs() {
+            try {
+                const response = await fetch(`${baseApiUrl}/usercommands/logs`);
+                if (!response.ok) throw new Error("API hatası: " + response.statusText);
+
+                const logs = await response.json();
+                updateLogTable(logs);
+            } catch (error) {
+                console.error("Loglar alınırken hata oluştu:", error);
+            }
+        }
+
+        function updateLogTable(logs) {
+            const tableBody = document.querySelector("#logTable tbody");
+            tableBody.innerHTML = ""; // Önce temizle
+
+            logs.forEach(log => {
+                const row = document.createElement("tr");
+
+                row.innerHTML = `
+                    <td>${new Date(log.timeStamp).toLocaleString()}</td>
+                    <td>${log.userId}</td>
+                    <td>${log.command==="OPEN" ? "AÇILDI": "KAPANDI"}</td>
+                    <td>${log.isAuto ? " Evet" : " Hayır"}</td>
+                `;
+
+                tableBody.appendChild(row);
+            });
+        }
+
+        // Sayfa açıldığında logları çek
+        await fetchUserLogs();
+
+        // Logları her 5 saniyede bir güncelle
+        setInterval(fetchUserLogs, 5000);
+    });
+</script>

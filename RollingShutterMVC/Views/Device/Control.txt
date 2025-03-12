@@ -2,7 +2,10 @@
     ViewData["Title"] = "Pencere Kontrolü";
 }
 
+
 <style>
+    
+
     #window-frame {
         width: 300px;
         height: 400px;
@@ -11,10 +14,11 @@
         overflow: hidden;
         margin: 20px auto;
         border-radius: 10px;
-        background: #87CEEB;
+        background: #87CEEB; 
         box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
     }
 
+   
     #window-grid {
         width: 100%;
         height: 100%;
@@ -26,9 +30,9 @@
         grid-template-rows: 1fr 1fr;
         gap: 5px;
         padding: 1px;
-        border-style: solid;
-        border-color: #69a1d1;
-        border-width: 10px;
+        border-style:solid;
+        border-color:#69a1d1;
+        border-width:10px;
         background: url('https://cdn.pixabay.com/photo/2021/09/20/21/32/lake-6641880_1280.jpg') no-repeat center center;
         background-size: cover;
     }
@@ -41,19 +45,30 @@
         transition: opacity 0.5s ease;
     }
 
+   
     #shutter {
         width: 100%;
-        height: 0%; /* Başlangıçta tamamen açık */
+        height: 100%;
         background: linear-gradient(to bottom, #555, #777);
         position: absolute;
-        top: 0; /* Panjurun yukarıda sabit kalmasını sağlıyoruz */
-        transition: height 0.8s ease;
+        top: 0;
+        transition: transform 0.8s cubic-bezier(0.65, 0, 0.35, 1), height 0.8s ease;
         border-bottom: 2px solid #333;
         border-top: 2px solid #333;
+        transform-origin: top;
         border-radius: 0 0 10px 10px;
     }
 
-
+    
+    #roller {
+        width: 100%;
+        height: 20px;
+        background: #333;
+        position: absolute;
+        top: 0;
+        left: 0;
+        border-radius: 10px 10px 0 0;
+    }
 
     input[type="range"] {
         width: 300px;
@@ -83,6 +98,7 @@
         }
 </style>
 
+
 <h2>Pencereyi Kontrol Et</h2>
 
 <div id="window-frame">
@@ -92,7 +108,8 @@
         <div class="glass"></div>
         <div class="glass"></div>
     </div>
-    <div id="shutter"></div>
+    <div id="roller"></div>  
+    <div id="shutter"></div> 
 </div>
 
 <input type="range" id="slider" min="0" max="100" value="100" />
@@ -102,7 +119,7 @@
 <button id="btnClose">Kapat</button>
 
 <script>
-    document.addEventListener("DOMContentLoaded", async function () {
+            document.addEventListener("DOMContentLoaded", function () {
         const slider = document.getElementById("slider");
         const sliderValue = document.getElementById("sliderValue");
         const shutter = document.getElementById("shutter");
@@ -112,56 +129,32 @@
 
         let currentLevel = 100;
         let lastSentValue = 100;
-        const baseApiUrl = '@ViewBag.baseApiUrl';
 
-        // 📌 API'den panjur durumunu çek ve UI'yi güncelle
-        async function fetchShutterStatus() {
-            try {
-                const response = await fetch(`${baseApiUrl}/sensor/shutter/status`);
-                if (!response.ok) throw new Error("API hatası: " + response.statusText);
-
-                const data = await response.json();
-                currentLevel = data.openPercentage;
-                updateUI(currentLevel);
-            } catch (error) {
-                console.error("Panjur durumu alınırken hata oluştu:", error);
-            }
-        }
 
            function updateUI(level) {
-        level = 100 - level;  // 🔄 Gelen değeri tersine çevir (100 -> 0, 0 -> 100)
-
         slider.value = level;
         sliderValue.textContent = level + "%";
+        shutter.style.transform = `scaleY(${level / 100})`;
+        shutter.style.height = `${level}%`;
 
-        const shutterElement = document.getElementById("shutter");
-
-        // 🔄 Panjurun yüksekliğini ayarla (Açık/Kapalı ters olacak)
-        shutterElement.style.height = `${level}%`;
-
-        // Camın opaklığını değiştir
         const opacity = 0.4 + (level / 300) * 0.6;
         glassElements.forEach(glass => {
             glass.style.opacity = opacity;
         });
 
-        // 📌 Aç/Kapat butonlarını güncelle
-        btnOpen.disabled = (level === 0);   // Tamamen açık ise Aç butonu pasif
-        btnClose.disabled = (level === 100); // Tamamen kapalı ise Kapat butonu pasif
+        btnOpen.disabled = (level === 0);
+        btnClose.disabled = (level === 100);
     }
 
 
 
-        // 📌 Sayfa açıldığında API'den veri çek
-        await fetchShutterStatus();
-
-        // 📌 Slider hareket ettikçe UI güncelle
+       
         slider.addEventListener("input", () => {
             const value = parseInt(slider.value);
             updateUI(value);
         });
 
-        // 📌 Kullanıcı mouse'u veya parmağını kaldırınca komutu API'ye gönder
+       
         slider.addEventListener("mouseup", sendFinalCommand);
         slider.addEventListener("touchend", sendFinalCommand);
 
@@ -173,24 +166,22 @@
             }
         }
 
-        // 📌 Aç / Kapat Butonları
         btnOpen.addEventListener("click", () => {
-            if (currentLevel !== 100) {
-                sendCommand("OPEN");
-                currentLevel = 100;
-                updateUI(currentLevel);
-            }
-        });
-
-        btnClose.addEventListener("click", () => {
             if (currentLevel !== 0) {
-                sendCommand("CLOSE");
+                sendCommand("OPEN");
                 currentLevel = 0;
                 updateUI(currentLevel);
             }
         });
 
-        // 📌 API'ye Komut Gönderme
+        btnClose.addEventListener("click", () => {
+            if (currentLevel !== 100) {
+                sendCommand("CLOSE");
+                currentLevel = 100;
+                updateUI(currentLevel);
+            }
+        });
+
         function sendCommand(command) {
             const payload = { command };
             fetch("/Device/send-command-js", {
@@ -198,11 +189,15 @@
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(payload)
             })
-            .then(response => {
-                if (!response.ok) return response.json().then(data => console.error("Hata: ", data));
-                console.log("Komut gönderildi: ", command);
-            })
-            .catch(error => console.error("Fetch hatası: ", error));
+                .then(response => {
+                    if (!response.ok) return response.json().then(data => console.error("Hata: ", data));
+                    console.log("Komut gönderildi: ", command);
+                })
+                .catch(error => console.error("Fetch hatası: ", error));
         }
+
+        updateUI(currentLevel);
     });
+
+
 </script>

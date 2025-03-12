@@ -29,7 +29,7 @@ namespace RollingShutterMVC.Controllers
         [HttpGet("Control")]
         public IActionResult Control()
         {
-           
+            ViewBag.baseApiUrl = _apiBaseUrl;
             return View();
         }
         [HttpPost("send-command-js")]
@@ -59,7 +59,7 @@ namespace RollingShutterMVC.Controllers
             {
                 return StatusCode((int)response.StatusCode, "Komut gönderme başarısız.");
             }
-
+            
             return Ok(new { Message = "Komut gönderildi" });
         }
 

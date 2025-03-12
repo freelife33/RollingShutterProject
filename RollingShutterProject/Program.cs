@@ -20,9 +20,10 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAllOrigins", policy =>
     {
-        policy.AllowAnyOrigin()      // Herkese izin ver
-              .AllowAnyHeader()      // Tüm baþlýklarý kabul et
-              .AllowAnyMethod();     // Tüm HTTP metodlarýna izin ver
+        policy.WithOrigins("https://localhost:7132")    
+              .AllowAnyHeader()     
+              .AllowAnyMethod()   
+              .AllowCredentials();
     });
 });
 

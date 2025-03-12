@@ -29,7 +29,19 @@ namespace RollingShutterProject.Controllers
             {
                 return BadRequest(new { Message = "Komut boş olamaz" });
             }
-            await _mqttService.PublishMessageAsync("shutter/slider", command!.Command!);
+
+            var userCommand = new UserCommand
+            {
+                UserId = 0,
+                DeviceId = 0,
+                Command = command.Command,
+                TimeStamp = DateTime.Now,
+                IsAuto = false
+            }; 
+            await _mqttService.PublishMessageAsync("device/command", command!.Command!);
+            await _unitOfWork.UserCommands.AddAsync(userCommand);
+            await _unitOfWork.CompleteAsync();
+           
             return Ok(new { Message = "Komut gönderildi" });
         }
 

@@ -14,5 +14,12 @@ namespace RollingShutterProject.Repositories
         {
             return await _context.UserCommands.Where(uc => uc.UserId == userId).ToListAsync();
         }
+
+        public async Task<UserCommand?> GetLastManualUserCommandAsync()
+        {
+            return await _context.UserCommands
+                .OrderByDescending(c => c.TimeStamp)
+                .FirstOrDefaultAsync();
+        }
     }
 }

@@ -21,6 +21,7 @@ namespace RollingShutterProject.Repositories
             .FirstOrDefaultAsync();
         }
 
+
         public async Task<IEnumerable<SensorData>> GetSensorDataByDeviceIdAsync(int deviceId)
         {
             return await _context.SensorData.Where(s => s.DeviceId == deviceId).ToListAsync();

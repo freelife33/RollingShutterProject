@@ -139,7 +139,7 @@ namespace RollingShutterProject.Services
                         if (shouldOpenShutter)
                         {
                             await PublishMessageAsync("device/command", "OPEN");
-                            await SaveUserCommand(0, $"Ortam koşulları nedeniyle otomatik açıldı (Sıcaklık: {sensorData.Temperature}, Hava Kalitesi: {sensorData.AirQuality}).");
+                            await SaveUserCommand(0, $"Ortam koşulları nedeniyle otomatik açıldı (Sıcaklık: {sensorData.Temperature}, Hava Kalitesi: {sensorData.AirQuality}).",true);
                             _logger.LogInformation($"Otomatik açıldı (Sıcaklık: {sensorData.Temperature}, Hava Kalitesi: {sensorData.AirQuality})");
                         }
                         else if (shouldCloseShutter)
@@ -184,7 +184,7 @@ namespace RollingShutterProject.Services
 
                         if (!shouldSave)
                         {
-                            TimeSpan timeDifference = DateTime.UtcNow - lastData!.TimeStamp;
+                            TimeSpan timeDifference = DateTime.Now - lastData!.TimeStamp;
                             bool isTimeToSave = timeDifference.TotalHours >= intervalHours;
 
                             float valueDifference = Math.Abs(currentValue - lastData.Value);
@@ -202,7 +202,7 @@ namespace RollingShutterProject.Services
                                 DeviceIdString = deviceId.ToString(),
                                 SensorType = sensorType,
                                 Value = currentValue,
-                                TimeStamp = DateTime.UtcNow
+                                TimeStamp = DateTime.Now
                             };
 
                             await unitOfWork.SensorData.AddAsync(newSensorData);
@@ -271,7 +271,7 @@ namespace RollingShutterProject.Services
             return userIdClaim != null ? int.Parse(userIdClaim.Value) : 0;
         }
 
-        private async Task SaveUserCommand(int deviceId, string command)
+        private async Task SaveUserCommand(int deviceId, string command, bool isAuto=false)
         {
             using (var scope = _serviceScopeFactory.CreateScope())
             {
@@ -286,7 +286,8 @@ namespace RollingShutterProject.Services
                         UserId = currentUserId, 
                         DeviceId = deviceId,
                         Command = command,
-                        TimeStamp = DateTime.UtcNow
+                        IsAuto = isAuto,
+                        TimeStamp = DateTime.Now
                     };
 
                     await unitOfWork.UserCommands.AddAsync(userCommand);

@@ -42,7 +42,7 @@ namespace RollingShutterMVC.Controllers
                 return RedirectToAction("Index", "Wizard");
             }
 
-
+            ViewBag.baseApiUrl = _apiBaseUrl;
             return View();
         }
 

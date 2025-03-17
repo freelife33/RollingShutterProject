@@ -17,9 +17,9 @@ namespace RollingShutterProject.Controllers
         }
 
         [HttpGet("{userId}")]
-        public async Task<IActionResult> GetUserSettings(int userId)
+        public async Task<IActionResult> GetUserSettings()
         {
-            var settings = await _unitOfWork.UserSettings.GetUserSettings(userId);
+            var settings = await _unitOfWork.UserSettings.GetUserSettings();
             if (settings == null)
             {
                 return NotFound("Kullanıcı ayarları bulunamadı.");
@@ -30,7 +30,7 @@ namespace RollingShutterProject.Controllers
         [HttpPost("update")]
         public async Task<IActionResult> UpdateSystemSettings([FromBody] UserSettings settings)
         {
-            var existingSettings = await _unitOfWork.UserSettings.GetUserSettings(settings.UserId);
+            var existingSettings = await _unitOfWork.UserSettings.GetUserSettings();
             if (existingSettings == null)
             {
                 await _unitOfWork.UserSettings.AddAsync(settings);

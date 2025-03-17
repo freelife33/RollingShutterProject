@@ -88,8 +88,7 @@ namespace RollingShutterProject.Services
                         return;
                     }
 
-                    int currentUserId = 1;// GetCurrentUserId();
-                    var userSettings = await unitOfWork.UserSettings.GetUserSettings(currentUserId) ?? new UserSettings
+                    var userSettings = await unitOfWork.UserSettings.GetUserSettings() ?? new UserSettings
                     {
                         LoggingIntervalHours = 3, // Varsayılan 3 saat
                         DetectAnomalies = true
@@ -272,11 +271,6 @@ namespace RollingShutterProject.Services
             }
         }
 
-        private int GetCurrentUserId()
-        {
-            var userIdClaim = _httpContextAccessor.HttpContext?.User?.FindFirst(ClaimTypes.NameIdentifier);
-            return userIdClaim != null ? int.Parse(userIdClaim.Value) : 0;
-        }
 
         private async Task SaveUserCommand(int deviceId, string command, bool isAuto=false)
         {
@@ -286,11 +280,11 @@ namespace RollingShutterProject.Services
 
                 try
                 {
-                    int currentUserId = GetCurrentUserId();
+                    
 
                     var userCommand = new UserCommand
                     {
-                        UserId = currentUserId, 
+                        UserId = 0, 
                         DeviceId = deviceId,
                         Command = command,
                         IsAuto = isAuto,
@@ -300,7 +294,7 @@ namespace RollingShutterProject.Services
                     await unitOfWork.UserCommands.AddAsync(userCommand);
                     await unitOfWork.CompleteAsync();
 
-                    _logger.LogInformation($"Kullanıcı komutu kaydedildi: {command} - Kullanıcı ID: {currentUserId}");
+                    _logger.LogInformation($"Kullanıcı komutu kaydedildi: {command} - Kullanıcı ID: {0}");
                 }
                 catch (Exception ex)
                 {

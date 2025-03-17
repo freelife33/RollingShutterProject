@@ -20,9 +20,15 @@ namespace RollingShutterProject.Models
         public bool AutoOpenShutterOnPoorAirQuality { get; set; }
         public float HighTemperatureThreshold { get; set; }
         public float PoorAirQualityThreshold { get; set; }
-
-
         public bool AutoOpenShutter { get; set; }
+
+
+        //Zamana göre açma kapama
+        public bool AutoOpenShutterOnTime { get; set; }
+        public bool AtoCloseShutterOnTime { get; set; }
+        public TimeSpan? OpenTime { get; set; }
+        public TimeSpan? CloseTime { get; set; }
+
 
         public string? MqttServer { get; set; }
         public string? MqttClientId { get; set; }

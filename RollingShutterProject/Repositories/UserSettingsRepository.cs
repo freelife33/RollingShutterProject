@@ -11,9 +11,9 @@ namespace RollingShutterProject.Repositories
         {
         }
 
-        public async Task<UserSettings?> GetUserSettings(int userId)
+        public async Task<UserSettings?> GetUserSettings()
         {
-            return await _context.UserSettings.FirstOrDefaultAsync(u => u.UserId == userId);
+            return await _context.UserSettings.FirstOrDefaultAsync();
         }
     }
 }

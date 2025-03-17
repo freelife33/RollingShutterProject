@@ -42,6 +42,7 @@ builder.Services.AddSingleton<INotificationService, NotificationService>();
 
 builder.Services.AddHttpContextAccessor();
 
+builder.Services.AddHostedService<AutomationService>();
 
 builder.Services.AddControllers();
 

@@ -16,31 +16,57 @@
 }
 
 <form asp-action="Save" method="post">
-    <div class="form-group">
-        <label for="LoggingIntervalHours">Kayıt Aralığı (Saat):</label>
-        <input asp-for="LoggingIntervalHours" class="form-control" />
-        <span asp-validation-for="LoggingIntervalHours" class="text-danger"></span>
+    <div>
+        <label>Loglama Aralığı (Saat)</label>
+        <input asp-for="LoggingIntervalHours" type="number" min="1" />
+    </div>
+    <div>
+        <label><input asp-for="DetectAnomalies" type="checkbox" /> Anomali Tespiti</label>
+    </div>
+    <div>
+        <label><input asp-for="NotifyOnHighTemperature" type="checkbox" /> Yüksek Sıcaklık Bildirimi</label>
+    </div>
+    <div>
+        <label><input asp-for="NotifyOnPoorAirQuality" type="checkbox" /> Kötü Hava Kalitesi Bildirimi</label>
+    </div>
+    <div>
+        <label><input asp-for="AutoOpenShutterOnHighTemperature" type="checkbox" /> Yüksek Sıcaklıkta Otomatik Açma</label>
+    </div>
+    <div>
+        <label><input asp-for="AutoOpenShutterOnPoorAirQuality" type="checkbox" /> Kötü Hava Kalitesinde Otomatik Açma</label>
+    </div>
+    <div>
+        <label>Sıcaklık Eşiği</label>
+        <input asp-for="HighTemperatureThreshold" type="number" step="0.1" />
+    </div>
+    <div>
+        <label>Hava Kalitesi Eşiği</label>
+        <input asp-for="PoorAirQualityThreshold" type="number" step="0.1" />
+    </div>
+    <div>
+        <label><input asp-for="AutoOpenShutter" type="checkbox" /> Çevresel Koşullara Göre Otomatik Açma</label>
     </div>
 
-    <div class="form-group form-check">
-        <input asp-for="DetectAnomalies" class="form-check-input" />
-        <label asp-for="DetectAnomalies" class="form-check-label">Anomalileri Tespit Et</label>
+    <h4>Zaman Bazlı Otomasyon</h4>
+    <div>
+        <label><input asp-for="AutoOpenShutterOnTime" type="checkbox" /> Belirli Saatte Otomatik Aç</label>
+    </div>
+    <div>
+        <label>Açılma Saati</label>
+        <input asp-for="OpenTime" type="time" />
+    </div>
+    <div>
+        <label><input asp-for="AtoCloseShutterOnTime" type="checkbox" /> Belirli Saatte Otomatik Kapat</label>
+    </div>
+    <div>
+        <label>Kapanma Saati</label>
+        <input asp-for="CloseTime" type="time" />
     </div>
 
-    <div class="form-group form-check">
-        <input asp-for="NotifyOnHighTemperature" class="form-check-input" />
-        <label asp-for="NotifyOnHighTemperature" class="form-check-label">Yüksek Sıcaklıkta Bildir</label>
-    </div>
-
-    <div class="form-group form-check">
-        <input asp-for="NotifyOnPoorAirQuality" class="form-check-input" />
-        <label asp-for="NotifyOnPoorAirQuality" class="form-check-label">Kötü Hava Kalitesinde Bildir</label>
-    </div>
-
-    <div class="form-group form-check">
-        <input asp-for="AutoOpenShutter" class="form-check-input" />
-        <label asp-for="AutoOpenShutter" class="form-check-label">Panjuru Otomatik Aç</label>
-    </div>
-
-    <button type="submit" class="btn btn-primary">Kaydet</button>
+    <button type="submit">Kaydet</button>
 </form>
+
+@if (TempData["Success"] != null)
+{
+    <p style="color: green">@TempData["Success"]</p>
+}

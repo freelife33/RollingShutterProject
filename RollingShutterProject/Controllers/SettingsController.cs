@@ -27,7 +27,7 @@ namespace RollingShutterProject.Controllers
             return Ok(settings);
         }
 
-        [HttpPost("update")]
+        [HttpPut("{userId}")]
         public async Task<IActionResult> UpdateSystemSettings([FromBody] UserSettings settings)
         {
             var existingSettings = await _unitOfWork.UserSettings.GetUserSettings();
@@ -42,6 +42,11 @@ namespace RollingShutterProject.Controllers
                 existingSettings.NotifyOnHighTemperature = settings.NotifyOnHighTemperature;
                 existingSettings.NotifyOnPoorAirQuality = settings.NotifyOnPoorAirQuality;
                 existingSettings.AutoOpenShutter = settings.AutoOpenShutter;
+                                
+                existingSettings.AutoOpenShutterOnTime = settings.AutoOpenShutterOnTime;
+                existingSettings.AtoCloseShutterOnTime = settings.AtoCloseShutterOnTime;
+                existingSettings.OpenTime = settings.OpenTime;
+                existingSettings.CloseTime = settings.CloseTime;
             }
 
             await _unitOfWork.CompleteAsync();
